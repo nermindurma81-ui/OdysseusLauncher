@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Odysseus</string>
+    <string name="retry">Pokušaj ponovo</string>
+    <string name="connection_error_default">Ne mogu da se povežem na Odysseus server.</string>
+    <string name="connection_error">Ne mogu da se povežem na %1$s.\n\nProvjeri da li je Odysseus server pokrenut u Termuxu, pa pritisni "Pokušaj ponovo".</string>
+</resources>
