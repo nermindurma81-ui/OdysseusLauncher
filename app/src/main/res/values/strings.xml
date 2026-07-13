@@ -2,5 +2,9 @@
     <string name="app_name">Odysseus</string>
     <string name="retry">Pokušaj ponovo</string>
     <string name="connection_error_default">Ne mogu da se povežem na Odysseus server.</string>
-    <string name="connection_error">Ne mogu da se povežem na %1$s.\n\nProvjeri da li je Odysseus server pokrenut u Termuxu, pa pritisni "Pokušaj ponovo".</string>
+    <string name="connection_error">Ne mogu da se povežem na %1$s.\n\nPritisni "Pokreni server" ili provjeri da li je Odysseus server pokrenut u Termuxu, pa pritisni "Pokušaj ponovo".</string>
+    <string name="start_server">Pokreni server</string>
+    <string name="starting_server">Pokrećem server, sačekaj…</string>
+    <string name="termux_not_found">Termux nije instaliran ili nema dozvolu za RUN_COMMAND. Provjeri ~/.termux/termux.properties (allow-external-apps=true) i restartuj Termux.</string>
+    <string name="run_command_permission_needed">Potrebna je dozvola da app pokrene komande u Termuxu.</string>
 </resources>
