@@ -25,4 +25,13 @@
     <string name="debug_log_close">Zatvori</string>
     <string name="debug_log_clear">Očisti</string>
     <string name="debug_log_js_error_toast">⚠️ JS greška uhvaćena — vidi Debug Log</string>
+
+    <string name="startup_progress_idle">Spreman za pokretanje servisa.</string>
+    <string name="startup_progress_starting">Pokrećem servise u Termuxu…</string>
+    <string name="startup_progress_checking">Provjeravam portove: 9Router, LiteLLM i Odysseus…</string>
+    <string name="startup_progress_ready">Servisi su spremni. Otvaram Odysseus…</string>
+    <string name="startup_progress_partial">Još čekam: %1$s</string>
+    <string name="startup_progress_failed">Nisu svi servisi pokrenuti. Nedostaje: %1$s. Provjeri Termux logove.</string>
+    <string name="startup_progress_nine_router">Pokrećem 9Router i provjeravam port :20128…</string>
+    <string name="startup_progress_nine_router_ready">9Router radi na :20128.</string>
 </resources>

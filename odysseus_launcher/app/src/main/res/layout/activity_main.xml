@@ -79,6 +79,36 @@
                     android:gravity="center" />
             </LinearLayout>
 
+
+                <LinearLayout
+                    android:id="@+id/startupProgressPanel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    android:layout_marginBottom="16dp">
+
+                    <TextView
+                        android:id="@+id/startupProgressText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/startup_progress_idle"
+                        android:textColor="@color/od_fg"
+                        android:textSize="13sp"
+                        android:gravity="center"
+                        android:layout_marginBottom="8dp" />
+
+                    <ProgressBar
+                        android:id="@+id/startupProgressBar"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="8dp"
+                        android:max="3"
+                        android:progress="0"
+                        android:progressTint="@color/od_green"
+                        android:progressBackgroundTint="@color/od_border" />
+                </LinearLayout>
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/startNineRouterButton"
                 android:layout_width="match_parent"
