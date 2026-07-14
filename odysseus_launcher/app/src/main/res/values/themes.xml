@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.OdysseusLauncher" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="colorPrimary">@color/od_red</item>
+        <item name="colorPrimaryDark">@color/od_bg</item>
+        <item name="colorAccent">@color/od_red</item>
+        <item name="android:windowBackground">@color/od_bg</item>
+        <item name="android:statusBarColor">@color/od_bg</item>
+        <item name="android:navigationBarColor">@color/od_bg</item>
+    </style>
+</resources>

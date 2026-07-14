@@ -1,0 +1,28 @@
+<resources>
+    <string name="app_name">Odysseus</string>
+    <string name="tagline">Lokalni AI server</string>
+
+    <string name="retry">Otvori Odysseus</string>
+    <string name="connection_error_default">Server još nije pokrenut.</string>
+    <string name="connection_error">Ne mogu da se povežem na %1$s.\n\nPokreni servere ispod, sačekaj par sekundi, pa pritisni "Otvori Odysseus".</string>
+
+    <string name="start_nine_router">🔀  Pokreni 9Router</string>
+    <string name="start_servers">▶️  Pokreni servere</string>
+    <string name="starting_nine_router">Pokrećem 9Router…</string>
+    <string name="starting_servers">Pokrećem servere (LiteLLM + Odysseus)…</string>
+    <string name="stopping_servers">Gasim servere…</string>
+
+    <string name="status_idle">Spreman za pokretanje.</string>
+    <string name="status_waiting">Sačekaj par sekundi pa pritisni "Otvori Odysseus".</string>
+
+    <string name="termux_not_found">Termux nije instaliran ili nema dozvolu za RUN_COMMAND. Provjeri ~/.termux/termux.properties (allow-external-apps=true) i restartuj Termux.</string>
+    <string name="termux_not_installed">Termux nije instaliran. Otvaram F-Droid stranicu za preuzimanje…</string>
+    <string name="run_command_permission_needed">Potrebna je dozvola da app pokrene komande u Termuxu.</string>
+
+    <string name="debug_log_button">🐞 Debug log</string>
+    <string name="debug_log_title">JavaScript konzola (Odysseus web app)</string>
+    <string name="debug_log_empty">Nema zabilježenih poruka još. Otvori Odysseus i probaj dugme koje ne radi — greška će se pojaviti ovdje.</string>
+    <string name="debug_log_close">Zatvori</string>
+    <string name="debug_log_clear">Očisti</string>
+    <string name="debug_log_js_error_toast">⚠️ JS greška uhvaćena — vidi Debug Log</string>
+</resources>
