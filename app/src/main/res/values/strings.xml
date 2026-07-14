@@ -6,5 +6,6 @@
     <string name="start_server">Pokreni server</string>
     <string name="starting_server">Pokrećem server, sačekaj…</string>
     <string name="termux_not_found">Termux nije instaliran ili nema dozvolu za RUN_COMMAND. Provjeri ~/.termux/termux.properties (allow-external-apps=true) i restartuj Termux.</string>
+    <string name="termux_not_installed">Termux nije instaliran. Otvaram F-Droid stranicu za preuzimanje…</string>
     <string name="run_command_permission_needed">Potrebna je dozvola da app pokrene komande u Termuxu.</string>
 </resources>
