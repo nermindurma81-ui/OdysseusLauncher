@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">Odysseus</string>
+    <string name="retry">Pokušaj ponovo</string>
+    <string name="connection_error_default">Ne mogu da se povežem na Odysseus server.</string>
+    <string name="connection_error">Ne mogu da se povežem na %1$s.\n\nPritisni "Pokreni server" ili provjeri da li je Odysseus server pokrenut u Termuxu, pa pritisni "Pokušaj ponovo".</string>
+    <string name="start_server">Pokreni server</string>
+    <string name="starting_server">Pokrećem server, sačekaj…</string>
+    <string name="termux_not_found">Termux nije instaliran ili nema dozvolu za RUN_COMMAND. Provjeri ~/.termux/termux.properties (allow-external-apps=true) i restartuj Termux.</string>
+    <string name="termux_not_installed">Termux nije instaliran. Otvaram F-Droid stranicu za preuzimanje…</string>
+    <string name="run_command_permission_needed">Potrebna je dozvola da app pokrene komande u Termuxu.</string>
+
+    <!-- Home ekran -->
+    <string name="home_title">ODYSSEUS</string>
+    <string name="home_subtitle_idle">Server nije pokrenut. Odaberi jednu od opcija ispod.</string>
+    <string name="home_subtitle_error">Ne mogu da se povežem na server. Provjeri da li je pokrenut, ili ga pokreni ispod.</string>
+    <string name="btn_start_9router">Pokreni 9Router</string>
+    <string name="btn_start_servers">Pokreni servere</string>
+    <string name="toast_9router_starting">Pokrećem 9Router…</string>
+    <string name="toast_9router_started">9Router pokrenut. Sada pokreni ostale servere.</string>
+
+    <!-- Faze loadinga -->
+    <string name="phase_9router">Pokrećem 9Router…</string>
+    <string name="phase_litellm">Povezujem LiteLLM…</string>
+    <string name="phase_odysseus">Učitavam Odysseus…</string>
+    <string name="phase_checking">Provjeravam server…</string>
+
+    <!-- Vidljiva oznaka verzije radi provjere koji je build instaliran -->
+    <string name="build_tag">v1.3-navigation-fix</string>
+</resources>

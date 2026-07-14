@@ -1,22 +1,10 @@
 <resources>
     <style name="Theme.OdysseusLauncher" parent="Theme.MaterialComponents.NoActionBar">
-        <item name="colorPrimary">@color/gold</item>
-        <item name="colorPrimaryDark">@color/navy_deep</item>
-        <item name="colorAccent">@color/gold</item>
-        <item name="android:statusBarColor">@color/navy_deep</item>
-        <item name="android:windowBackground">@color/navy_deep</item>
-    </style>
-
-    <style name="OdysseusButton.Primary" parent="Widget.MaterialComponents.Button">
-        <item name="backgroundTint">@color/gold</item>
-        <item name="android:textColor">@color/navy_deep</item>
-        <item name="android:textStyle">bold</item>
-        <item name="cornerRadius">24dp</item>
-    </style>
-
-    <style name="OdysseusButton.Secondary" parent="Widget.MaterialComponents.Button.OutlinedButton">
-        <item name="strokeColor">@color/teal</item>
-        <item name="android:textColor">@color/teal</item>
-        <item name="cornerRadius">24dp</item>
+        <item name="colorPrimary">@color/od_red</item>
+        <item name="colorPrimaryDark">@color/od_bg</item>
+        <item name="colorAccent">@color/od_red</item>
+        <item name="android:windowBackground">@color/od_bg</item>
+        <item name="android:statusBarColor">@color/od_bg</item>
+        <item name="android:navigationBarColor">@color/od_bg</item>
     </style>
 </resources>

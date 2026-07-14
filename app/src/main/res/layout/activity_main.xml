@@ -1,55 +1,118 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/navy_deep"
-    android:padding="16dp">
+    android:background="@drawable/bg_loading_gradient">
 
-    <LinearLayout android:id="@+id/loadingView" android:layout_width="match_parent" android:layout_height="match_parent"
-        android:background="#80000000" android:gravity="center" android:visibility="gone" android:orientation="vertical">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/loading_title"
-            android:textColor="@color/gold" android:textSize="20sp" android:textStyle="bold" />
-        <ProgressBar android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16dp"
-            android:indeterminate="true" android:indeterminateTint="@color/gold" />
+    <!-- WebView sa Odysseus aplikacijom -->
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+    <!-- HOME EKRAN: prikazan na startu i kad server nije dostupan -->
+    <LinearLayout
+        android:id="@+id/homeView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="40dp"
+        android:visibility="visible">
+
+        <ImageView
+            android:id="@+id/homeLogo"
+            android:layout_width="88dp"
+            android:layout_height="88dp"
+            android:src="@drawable/ic_compass"
+            android:layout_marginBottom="20dp"
+            android:contentDescription="@string/app_name" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/home_title"
+            android:textColor="@color/text_primary"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.15"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:id="@+id/homeSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/home_subtitle_idle"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:layout_marginBottom="36dp" />
+
+        <Button
+            android:id="@+id/btnStart9Router"
+            style="@style/OdysseusButton.Secondary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            android:text="@string/btn_start_9router" />
+
+        <Button
+            android:id="@+id/btnStartServers"
+            style="@style/OdysseusButton.Primary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_start_servers" />
+
     </LinearLayout>
 
-    <LinearLayout android:id="@+id/errorView" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:gravity="center" android:visibility="gone" android:orientation="vertical">
-        <TextView android:id="@+id/errorText" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:textColor="@color/error_red" android:textSize="16sp" />
-        <Button android:id="@+id/retryButton" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:layout_marginTop="16dp" android:text="@string/error_retry" android:backgroundTint="@color/gold" android:textColor="@color/navy_deep" />
+    <!-- LOADING EKRAN: prikazan dok se serveri podižu / stranica učitava -->
+    <LinearLayout
+        android:id="@+id/loadingView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="40dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/loadingLogo"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:src="@drawable/ic_compass"
+            android:layout_marginBottom="24dp"
+            android:contentDescription="@string/app_name" />
+
+        <ProgressBar
+            android:id="@+id/loadingSpinner"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:indeterminateTint="@color/gold"
+            android:layout_marginBottom="20dp" />
+
+        <TextView
+            android:id="@+id/loadingStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/phase_checking"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:gravity="center" />
+
     </LinearLayout>
 
-    <ScrollView android:id="@+id/mainContent" android:layout_width="match_parent" android:layout_height="match_parent">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center">
-            <Button android:id="@+id/btn9Router" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp" android:text="@string/btn_9router" android:backgroundTint="@color/navy_mid" android:textColor="@color/gold" />
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="4dp">
-                <ImageView android:id="@+id/statusDot9Router" android:layout_width="12dp" android:layout_height="12dp"
-                    android:src="@drawable/status_dot" android:layout_marginEnd="8dp" />
-                <TextView android:id="@+id/statusText9Router" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="@string/status_inactive" android:textColor="@color/pending_gray" />
-            </LinearLayout>
-            <Button android:id="@+id/btnServers" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="16dp" android:layout_marginBottom="8dp" android:text="@string/btn_servers" android:backgroundTint="@color/navy_mid" android:textColor="@color/gold" />
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="4dp">
-                <ImageView android:id="@+id/statusDotServers" android:layout_width="12dp" android:layout_height="12dp"
-                    android:src="@drawable/status_dot" android:layout_marginEnd="8dp" />
-                <TextView android:id="@+id/statusTextServers" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="@string/status_inactive" android:textColor="@color/pending_gray" />
-            </LinearLayout>
-            <Button android:id="@+id/btnOdysseus" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="16dp" android:layout_marginBottom="8dp" android:text="@string/btn_odysseus" android:backgroundTint="@color/navy_mid" android:textColor="@color/gold" />
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="4dp">
-                <ImageView android:id="@+id/statusDotOdysseus" android:layout_width="12dp" android:layout_height="12dp"
-                    android:src="@drawable/status_dot" android:layout_marginEnd="8dp" />
-                <TextView android:id="@+id/statusTextOdysseus" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="@string/status_inactive" android:textColor="@color/pending_gray" />
-            </LinearLayout>
-            <WebView android:id="@+id/webView" android:layout_width="match_parent" android:layout_height="match_parent"
-                android:layout_marginTop="16dp" android:visibility="gone" />
-        </LinearLayout>
-    </ScrollView>
-</RelativeLayout>
+    <!-- Oznaka verzije builda — pomaže da se potvrdi koja je verzija app-a instalirana -->
+    <TextView
+        android:id="@+id/buildTag"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="16dp"
+        android:text="@string/build_tag"
+        android:textColor="@color/text_secondary"
+        android:textSize="10sp"
+        android:alpha="0.5" />
+
+</FrameLayout>
