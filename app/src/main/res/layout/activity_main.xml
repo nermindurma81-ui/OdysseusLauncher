@@ -2,51 +2,104 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_loading_gradient">
 
+    <!-- WebView sa Odysseus aplikacijom -->
     <WebView
         android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone" />
 
-    <ProgressBar
-        android:id="@+id/progressBar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:visibility="visible" />
-
+    <!-- HOME EKRAN: prikazan na startu i kad server nije dostupan -->
     <LinearLayout
-        android:id="@+id/errorView"
+        android:id="@+id/homeView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:gravity="center"
-        android:padding="32dp"
-        android:visibility="gone">
+        android:padding="40dp"
+        android:visibility="visible">
+
+        <ImageView
+            android:id="@+id/homeLogo"
+            android:layout_width="88dp"
+            android:layout_height="88dp"
+            android:src="@drawable/ic_compass"
+            android:layout_marginBottom="20dp"
+            android:contentDescription="@string/app_name" />
 
         <TextView
-            android:id="@+id/errorText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/connection_error_default"
-            android:textSize="16sp"
+            android:text="@string/home_title"
+            android:textColor="@color/text_primary"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.15"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:id="@+id/homeSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/home_subtitle_idle"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
             android:gravity="center"
-            android:layout_marginBottom="24dp" />
+            android:layout_marginBottom="36dp" />
 
         <Button
-            android:id="@+id/startServerButton"
-            android:layout_width="wrap_content"
+            android:id="@+id/btnStart9Router"
+            style="@style/OdysseusButton.Secondary"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:text="@string/start_server" />
+            android:layout_marginBottom="14dp"
+            android:text="@string/btn_start_9router" />
 
         <Button
-            android:id="@+id/retryButton"
+            android:id="@+id/btnStartServers"
+            style="@style/OdysseusButton.Primary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_start_servers" />
+
+    </LinearLayout>
+
+    <!-- LOADING EKRAN: prikazan dok se serveri podižu / stranica učitava -->
+    <LinearLayout
+        android:id="@+id/loadingView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="40dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/loadingLogo"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:src="@drawable/ic_compass"
+            android:layout_marginBottom="24dp"
+            android:contentDescription="@string/app_name" />
+
+        <ProgressBar
+            android:id="@+id/loadingSpinner"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/retry" />
+            android:indeterminateTint="@color/gold"
+            android:layout_marginBottom="20dp" />
+
+        <TextView
+            android:id="@+id/loadingStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/phase_checking"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:gravity="center" />
 
     </LinearLayout>
 

@@ -1,4 +1,15 @@
 <resources>
     <color name="purple_500">#6650a4</color>
     <color name="purple_700">#4a3880</color>
+
+    <!-- Odyssey tema: duboko more + zlato -->
+    <color name="navy_deep">#0B1B2B</color>
+    <color name="navy_mid">#122B45</color>
+    <color name="navy_light">#1E3E5C</color>
+    <color name="gold">#D4AF37</color>
+    <color name="gold_light">#E8C766</color>
+    <color name="teal">#2A9D8F</color>
+    <color name="text_primary">#F4EEDD</color>
+    <color name="text_secondary">#9FB3C8</color>
+    <color name="error_red">#E76F51</color>
 </resources>
