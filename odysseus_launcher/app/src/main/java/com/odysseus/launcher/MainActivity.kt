@@ -3,6 +3,7 @@ package com.odysseus.launcher
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -37,9 +38,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var retryButton: MaterialButton
     private lateinit var debugLogButton: TextView
     private lateinit var debugLogFloatingButton: TextView
-    private lateinit var startupProgressPanel: View
-    private lateinit var startupProgressBar: android.widget.ProgressBar
-    private lateinit var startupProgressText: TextView
 
     private val serverUrl = "http://localhost:7000"
     private val handler = Handler(Looper.getMainLooper())
@@ -86,9 +84,6 @@ class MainActivity : AppCompatActivity() {
         retryButton = findViewById(R.id.retryButton)
         debugLogButton = findViewById(R.id.debugLogButton)
         debugLogFloatingButton = findViewById(R.id.debugLogFloatingButton)
-        startupProgressPanel = findViewById(R.id.startupProgressPanel)
-        startupProgressBar = findViewById(R.id.startupProgressBar)
-        startupProgressText = findViewById(R.id.startupProgressText)
 
         retryButton.setOnClickListener { loadOdysseus() }
         startNineRouterButton.setOnClickListener { onStartNineRouterClicked() }
@@ -227,7 +222,7 @@ class MainActivity : AppCompatActivity() {
     private fun onStartNineRouterClicked() {
         withTermuxPermission {
             Toast.makeText(this, getString(R.string.starting_nine_router), Toast.LENGTH_SHORT).show()
-            sendRunCommand(
+            val commandSent = sendRunCommand(
                 path = termuxBashPath,
                 args = arrayOf(
                     "-lc",
@@ -253,6 +248,7 @@ class MainActivity : AppCompatActivity() {
                 ),
                 workDir = termuxWorkDir
             )
+            if (!commandSent) return@withTermuxPermission
             beginStartupProgress(
                 targets = listOf(ServiceTarget("9Router", 20128)),
                 initialMessage = getString(R.string.startup_progress_nine_router),
@@ -266,11 +262,12 @@ class MainActivity : AppCompatActivity() {
     private fun onStartServersClicked() {
         withTermuxPermission {
             Toast.makeText(this, getString(R.string.starting_servers), Toast.LENGTH_SHORT).show()
-            sendRunCommand(
-                path = startScriptPath,
-                args = arrayOf(),
+            val commandSent = sendRunCommand(
+                path = termuxBashPath,
+                args = arrayOf(startScriptPath),
                 workDir = termuxWorkDir
             )
+            if (!commandSent) return@withTermuxPermission
 
             errorText.text = getString(R.string.status_waiting)
             beginStartupProgress(
@@ -294,16 +291,16 @@ class MainActivity : AppCompatActivity() {
         successMessage: String,
         openWhenReady: Boolean
     ) {
-        startupProgressPanel.visibility = View.VISIBLE
-        startupProgressBar.max = targets.size
-        startupProgressBar.progress = 0
-        startupProgressText.text = initialMessage
+        errorText.text = initialMessage
         startNineRouterButton.isEnabled = false
         startServersButton.isEnabled = false
+        retryButton.isEnabled = false
 
         executor.execute {
             val ready = linkedSetOf<String>()
-            val deadline = System.currentTimeMillis() + 45_000
+            val startedAt = System.currentTimeMillis()
+            val timeoutMs = 45_000L
+            val deadline = startedAt + timeoutMs
 
             while (System.currentTimeMillis() < deadline && ready.size < targets.size) {
                 targets.forEach { target ->
@@ -312,13 +309,15 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
+                val elapsed = System.currentTimeMillis() - startedAt
+                val percent = maxOf(5, minOf(99, ((elapsed * 100) / timeoutMs).toInt()))
                 val missing = targets.map { it.name }.filterNot { it in ready }
                 handler.post {
-                    startupProgressBar.progress = ready.size
-                    startupProgressText.text = if (missing.isEmpty()) {
+                    errorText.text = if (missing.isEmpty()) {
                         successMessage
                     } else {
-                        getString(R.string.startup_progress_partial, missing.joinToString(", "))
+                        "${visualProgress(percent)} ${percent}%\n" +
+                                getString(R.string.startup_progress_partial, missing.joinToString(", "))
                     }
                 }
 
@@ -331,18 +330,23 @@ class MainActivity : AppCompatActivity() {
             handler.post {
                 startNineRouterButton.isEnabled = true
                 startServersButton.isEnabled = true
+                retryButton.isEnabled = true
                 if (missing.isEmpty()) {
-                    startupProgressBar.progress = targets.size
-                    startupProgressText.text = successMessage
+                    errorText.text = "${visualProgress(100)} 100%\n$successMessage"
                     if (openWhenReady) loadOdysseus()
                 } else {
-                    startupProgressText.text = getString(
+                    errorText.text = getString(
                         R.string.startup_progress_failed,
                         missing.joinToString(", ")
                     )
                 }
             }
         }
+    }
+
+    private fun visualProgress(percent: Int): String {
+        val filled = percent / 10
+        return "▰".repeat(filled) + "▱".repeat(10 - filled)
     }
 
     private fun isPortOpen(port: Int): Boolean {
@@ -368,7 +372,11 @@ class MainActivity : AppCompatActivity() {
             intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
             intent.putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
 
-            startForegroundService(intent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
             true
         } catch (e: SecurityException) {
             Toast.makeText(this, getString(R.string.termux_not_found), Toast.LENGTH_LONG).show()
