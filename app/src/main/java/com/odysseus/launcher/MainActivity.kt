@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
     private var pendingAction: (() -> Unit)? = null
 
     private var hadError = false
+    private var resultHandled = false
 
     private val serverUrl = "http://localhost:7000"
 
@@ -92,18 +93,21 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                hadError = false
+                // WebView ponekad radi DODATNU internu navigaciju ka svojoj
+                // ugrađenoj error stranici nakon originalnog neuspjelog zahtjeva.
+                // Ignorišemo sve što dođe nakon što smo već obradili rezultat
+                // prve navigacije, da ta interna stranica ne prepiše naš UI.
+                if (resultHandled) return
                 showLoading(getString(R.string.phase_checking))
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                if (resultHandled) return
+                resultHandled = true
                 stopPhaseSequence()
                 hideLoading()
                 if (hadError) {
-                    // WebView je učitao svoju internu error stranicu (npr. nakon
-                    // ERR_CONNECTION_REFUSED) — ostajemo na lijepom home ekranu
-                    // umjesto da pokažemo Chromium-ov ružni error ekran.
                     webView.visibility = View.GONE
                     homeView.visibility = View.VISIBLE
                 } else {
@@ -118,8 +122,10 @@ class MainActivity : AppCompatActivity() {
                 error: WebResourceError?
             ) {
                 super.onReceivedError(view, request, error)
+                if (resultHandled) return
                 if (request?.isForMainFrame == true) {
                     hadError = true
+                    resultHandled = true
                     stopPhaseSequence()
                     hideLoading()
                     webView.visibility = View.GONE
@@ -161,6 +167,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadOdysseus() {
+        hadError = false
+        resultHandled = false
         webView.loadUrl(serverUrl)
     }
 

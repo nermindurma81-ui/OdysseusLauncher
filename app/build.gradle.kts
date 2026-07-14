@@ -11,8 +11,8 @@ android {
         applicationId = "com.odysseus.launcher"
         minSdk = 24
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2-error-fix"
+        versionCode = 4
+        versionName = "1.3-navigation-fix"
     }
 
     buildTypes {
