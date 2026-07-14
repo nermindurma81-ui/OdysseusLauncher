@@ -38,6 +38,8 @@ class MainActivity : AppCompatActivity() {
     private val phaseHandler = Handler(Looper.getMainLooper())
     private var pendingAction: (() -> Unit)? = null
 
+    private var hadError = false
+
     private val serverUrl = "http://localhost:7000"
 
     // Termux (F-Droid / GitHub build) paket ID — isti za obje distribucije
@@ -90,6 +92,7 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                hadError = false
                 showLoading(getString(R.string.phase_checking))
             }
 
@@ -97,8 +100,16 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 stopPhaseSequence()
                 hideLoading()
-                homeView.visibility = View.GONE
-                webView.visibility = View.VISIBLE
+                if (hadError) {
+                    // WebView je učitao svoju internu error stranicu (npr. nakon
+                    // ERR_CONNECTION_REFUSED) — ostajemo na lijepom home ekranu
+                    // umjesto da pokažemo Chromium-ov ružni error ekran.
+                    webView.visibility = View.GONE
+                    homeView.visibility = View.VISIBLE
+                } else {
+                    homeView.visibility = View.GONE
+                    webView.visibility = View.VISIBLE
+                }
             }
 
             override fun onReceivedError(
@@ -108,6 +119,7 @@ class MainActivity : AppCompatActivity() {
             ) {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame == true) {
+                    hadError = true
                     stopPhaseSequence()
                     hideLoading()
                     webView.visibility = View.GONE

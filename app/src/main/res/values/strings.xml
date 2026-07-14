@@ -25,5 +25,5 @@
     <string name="phase_checking">Provjeravam server…</string>
 
     <!-- Vidljiva oznaka verzije radi provjere koji je build instaliran -->
-    <string name="build_tag">v1.1-home-screen</string>
+    <string name="build_tag">v1.2-error-fix</string>
 </resources>
