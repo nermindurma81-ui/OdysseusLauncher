@@ -103,4 +103,16 @@
 
     </LinearLayout>
 
+    <!-- Oznaka verzije builda — pomaže da se potvrdi koja je verzija app-a instalirana -->
+    <TextView
+        android:id="@+id/buildTag"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="16dp"
+        android:text="@string/build_tag"
+        android:textColor="@color/text_secondary"
+        android:textSize="10sp"
+        android:alpha="0.5" />
+
 </FrameLayout>

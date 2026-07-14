@@ -23,4 +23,7 @@
     <string name="phase_litellm">Povezujem LiteLLM…</string>
     <string name="phase_odysseus">Učitavam Odysseus…</string>
     <string name="phase_checking">Provjeravam server…</string>
+
+    <!-- Vidljiva oznaka verzije radi provjere koji je build instaliran -->
+    <string name="build_tag">v1.1-home-screen</string>
 </resources>
