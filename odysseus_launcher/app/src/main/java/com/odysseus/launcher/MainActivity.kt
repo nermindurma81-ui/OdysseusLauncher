@@ -238,11 +238,15 @@ class MainActivity : AppCompatActivity() {
                       exit 0
                     fi
                     NINE_ROUTER_BIN="/data/data/com.termux/files/usr/bin/9router"
-                    if [ -x "${'$'}NINE_ROUTER_BIN" ]; then
-                      nohup "${'$'}NINE_ROUTER_BIN" --host 127.0.0.1 --tray --no-browser --skip-update > "${'$'}HOME/logs/9router.log" 2>&1 &
+                    if [ ! -x "${'$'}NINE_ROUTER_BIN" ]; then
+                      NINE_ROUTER_BIN="${'$'}(command -v 9router || true)"
+                    fi
+                    if [ -n "${'$'}NINE_ROUTER_BIN" ] && [ -x "${'$'}NINE_ROUTER_BIN" ]; then
+                      # Termux nema desktop tray; --tray zna da sruši 9Router prije otvaranja porta.
+                      nohup "${'$'}NINE_ROUTER_BIN" --host 127.0.0.1 --no-browser --skip-update > "${'$'}HOME/logs/9router.log" 2>&1 &
                       echo ${'$'}! > "${'$'}HOME/.pids/9router.pid"
                     else
-                      echo "9router binary nije pronađen: ${'$'}NINE_ROUTER_BIN" > "${'$'}HOME/logs/9router.log"
+                      echo "9router binary nije pronađen u /data/data/com.termux/files/usr/bin ili PATH" > "${'$'}HOME/logs/9router.log"
                       exit 127
                     fi
                     """.trimIndent()
