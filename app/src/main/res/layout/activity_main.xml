@@ -50,35 +50,6 @@
             android:gravity="center"
             android:layout_marginBottom="36dp" />
 
-        <!-- Status indikator za 9Router (uvijek vidljiv na vrhu) -->
-        <LinearLayout
-            android:id="@+id/statusBadge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@drawable/status_badge_bg"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="8dp"
-            android:layout_marginBottom="24dp">
-
-            <View
-                android:id="@+id/statusDot"
-                android:layout_width="12dp"
-                android:layout_height="12dp"
-                android:background="@drawable/status_dot_unknown"
-                android:layout_marginEnd="8dp" />
-
-            <TextView
-                android:id="@+id/statusText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/status_9router_checking"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
         <Button
             android:id="@+id/btnStart9Router"
             style="@style/OdysseusButton.Secondary"
