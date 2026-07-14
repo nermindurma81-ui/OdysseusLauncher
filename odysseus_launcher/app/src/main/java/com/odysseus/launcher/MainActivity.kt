@@ -22,6 +22,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
+import java.io.IOException
+import java.net.InetSocketAddress
+import java.net.Socket
 
 class MainActivity : AppCompatActivity() {
 
@@ -45,11 +48,19 @@ class MainActivity : AppCompatActivity() {
     private val startScriptPath = "/data/data/com.termux/files/home/start_all.sh"
     private val stopScriptPath = "/data/data/com.termux/files/home/stop_all.sh"
     private val termuxWorkDir = "/data/data/com.termux/files/home"
+    private val bashPath = "/data/data/com.termux/files/usr/bin/bash"
     // Wrapper skripta (ubija zaglavljenu instancu pa pokreće headless, bez interaktivnog menija)
     private val nineRouterPath = "/data/data/com.termux/files/home/start_9router.sh"
 
     // Šta uraditi nakon što korisnik odobri RUN_COMMAND dozvolu
     private var pendingAction: (() -> Unit)? = null
+    private var progressThread: Thread? = null
+
+    companion object {
+        private const val CONNECT_TIMEOUT_MS = 500
+        private const val SERVICE_POLL_INTERVAL_MS = 750L
+        private const val SERVICE_START_TIMEOUT_MS = 45_000L
+    }
 
     // Sve poruke iz JS konzole Odysseus web app-a (uključujući neuhvaćene greške) —
     // ovo nam pomaže da vidimo ZAŠTO dugmad u web app-u ne reaguju u WebView-u.
@@ -175,6 +186,7 @@ class MainActivity : AppCompatActivity() {
                 workDir = termuxWorkDir
             )
         }
+        stopProgressPolling()
         super.onDestroy()
     }
 
@@ -217,11 +229,22 @@ class MainActivity : AppCompatActivity() {
     private fun onStartNineRouterClicked() {
         withTermuxPermission {
             Toast.makeText(this, getString(R.string.starting_nine_router), Toast.LENGTH_SHORT).show()
-            sendRunCommand(
-                path = nineRouterPath,
-                args = arrayOf(),
+            progressBar.visibility = View.VISIBLE
+            errorText.text = getString(R.string.progress_9router_waiting)
+            val dispatched = sendRunCommand(
+                path = bashPath,
+                args = arrayOf("-lc", buildNineRouterCommand()),
                 workDir = termuxWorkDir
             )
+            if (dispatched) {
+                pollServicePort(
+                    port = 20128,
+                    successMessage = getString(R.string.progress_9router_connected),
+                    failureMessage = getString(R.string.progress_9router_failed)
+                )
+            } else {
+                progressBar.visibility = View.GONE
+            }
         }
     }
 
@@ -229,18 +252,91 @@ class MainActivity : AppCompatActivity() {
     private fun onStartServersClicked() {
         withTermuxPermission {
             Toast.makeText(this, getString(R.string.starting_servers), Toast.LENGTH_SHORT).show()
-            sendRunCommand(
+            progressBar.visibility = View.VISIBLE
+            errorText.text = getString(R.string.progress_servers_waiting)
+            val dispatched = sendRunCommand(
                 path = startScriptPath,
                 args = arrayOf(),
                 workDir = termuxWorkDir
             )
 
-            errorText.text = getString(R.string.status_waiting)
+            if (dispatched) {
+                pollServicePort(
+                    port = 7000,
+                    successMessage = getString(R.string.progress_servers_connected),
+                    failureMessage = getString(R.string.progress_servers_failed)
+                ) {
+                    loadOdysseus()
+                }
+            } else {
+                progressBar.visibility = View.GONE
+            }
+        }
+    }
 
-            // Serveru treba par sekundi da se digne, pa pokušavamo ponovo učitati stranicu.
-            Handler(Looper.getMainLooper()).postDelayed({
-                loadOdysseus()
-            }, 8000)
+    private fun buildNineRouterCommand(): String {
+        return """
+            export HOME=/data/data/com.termux/files/home
+            export PREFIX=/data/data/com.termux/files/usr
+            mkdir -p "${'$'}HOME/logs" "${'$'}HOME/.pids"
+            pkill -9 -f '9router' 2>/dev/null || true
+            sleep 1
+            if [ -x "${'$'}HOME/start_9router.sh" ]; then
+              "${'$'}HOME/start_9router.sh"
+            elif [ -f "${'$'}HOME/start_9router.sh" ]; then
+              chmod +x "${'$'}HOME/start_9router.sh" && "${'$'}HOME/start_9router.sh"
+            else
+              NINE_ROUTER_BIN="${'$'}PREFIX/bin/9router"
+              if [ ! -x "${'$'}NINE_ROUTER_BIN" ]; then
+                echo "9router nije instaliran: ${'$'}NINE_ROUTER_BIN" >&2
+                exit 127
+              fi
+              nohup "${'$'}NINE_ROUTER_BIN" --host 127.0.0.1 --tray --no-browser --skip-update > "${'$'}HOME/logs/9router.log" 2>&1 &
+              echo ${'$'}! > "${'$'}HOME/.pids/9router.pid"
+            fi
+        """.trimIndent()
+    }
+
+    private fun pollServicePort(
+        port: Int,
+        successMessage: String,
+        failureMessage: String,
+        onConnected: (() -> Unit)? = null
+    ) {
+        stopProgressPolling()
+        progressThread = Thread {
+            val deadline = System.currentTimeMillis() + SERVICE_START_TIMEOUT_MS
+            var connected = false
+            while (!Thread.currentThread().isInterrupted && System.currentTimeMillis() < deadline) {
+                if (isPortOpen(port)) {
+                    connected = true
+                    break
+                }
+                Thread.sleep(SERVICE_POLL_INTERVAL_MS)
+            }
+
+            Handler(Looper.getMainLooper()).post {
+                if (isFinishing || isDestroyed) return@post
+                progressBar.visibility = View.GONE
+                errorText.text = if (connected) successMessage else failureMessage
+                if (connected) onConnected?.invoke()
+            }
+        }.also { it.start() }
+    }
+
+    private fun stopProgressPolling() {
+        progressThread?.interrupt()
+        progressThread = null
+    }
+
+    private fun isPortOpen(port: Int): Boolean {
+        return try {
+            Socket().use { socket ->
+                socket.connect(InetSocketAddress("127.0.0.1", port), CONNECT_TIMEOUT_MS)
+                socket.isConnected
+            }
+        } catch (e: IOException) {
+            false
         }
     }
 

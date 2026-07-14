@@ -17,6 +17,12 @@
     <string name="btn_start_servers">Pokreni servere</string>
     <string name="toast_9router_starting">Pokrećem 9Router…</string>
     <string name="toast_9router_started">9Router pokrenut. Sada pokreni ostale servere.</string>
+    <string name="progress_9router_waiting">Provjeravam da li je 9Router povezan…</string>
+    <string name="progress_9router_connected">9Router je povezan na portu 20128.</string>
+    <string name="progress_9router_failed">9Router se nije povezao. Provjeri Termux log ~/logs/9router.log.</string>
+    <string name="progress_servers_waiting">Provjeravam konekciju sa Odysseus serverom…</string>
+    <string name="progress_servers_connected">Odysseus server je povezan.</string>
+    <string name="progress_servers_failed">Serveri se nisu povezali na vrijeme. Provjeri Termux logove.</string>
 
     <!-- Faze loadinga -->
     <string name="phase_9router">Pokrećem 9Router…</string>

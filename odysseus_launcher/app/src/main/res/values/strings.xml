@@ -14,6 +14,12 @@
 
     <string name="status_idle">Spreman za pokretanje.</string>
     <string name="status_waiting">Sačekaj par sekundi pa pritisni "Otvori Odysseus".</string>
+    <string name="progress_9router_waiting">Provjeravam da li je 9Router povezan…</string>
+    <string name="progress_9router_connected">9Router je povezan na portu 20128.</string>
+    <string name="progress_9router_failed">9Router se nije povezao. Provjeri Termux log ~/logs/9router.log.</string>
+    <string name="progress_servers_waiting">Provjeravam konekciju sa Odysseus serverom…</string>
+    <string name="progress_servers_connected">Odysseus server je povezan.</string>
+    <string name="progress_servers_failed">Serveri se nisu povezali na vrijeme. Provjeri Termux logove.</string>
 
     <string name="termux_not_found">Termux nije instaliran ili nema dozvolu za RUN_COMMAND. Provjeri ~/.termux/termux.properties (allow-external-apps=true) i restartuj Termux.</string>
     <string name="termux_not_installed">Termux nije instaliran. Otvaram F-Droid stranicu za preuzimanje…</string>

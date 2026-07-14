@@ -22,6 +22,9 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import java.io.IOException
+import java.net.InetSocketAddress
+import java.net.Socket
 
 class MainActivity : AppCompatActivity() {
 
@@ -37,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private var compassAnimator: ObjectAnimator? = null
     private val phaseHandler = Handler(Looper.getMainLooper())
     private var pendingAction: (() -> Unit)? = null
+    private var progressThread: Thread? = null
 
     private var hadError = false
     private var resultHandled = false
@@ -54,6 +58,12 @@ class MainActivity : AppCompatActivity() {
     private val termuxWorkDir = "/data/data/com.termux/files/home"
     private val nineRouterPath = "$termuxPrefix/bin/9router"
     private val bashPath = "$termuxPrefix/bin/bash"
+
+    companion object {
+        private const val CONNECT_TIMEOUT_MS = 500
+        private const val SERVICE_POLL_INTERVAL_MS = 750L
+        private const val SERVICE_START_TIMEOUT_MS = 45_000L
+    }
 
     private val requestRunCommandPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -161,6 +171,7 @@ class MainActivity : AppCompatActivity() {
                 workDir = termuxWorkDir
             )
         }
+        stopProgressPolling()
         stopPhaseSequence()
         compassAnimator?.cancel()
         super.onDestroy()
@@ -245,10 +256,9 @@ class MainActivity : AppCompatActivity() {
         startPhaseSequence()
 
         // pkill pa ponovo pokreni 9router (rješava slučaj kad je proces "obješen").
-        val restartCmd = "pkill -9 -f 9router; sleep 1; $nineRouterPath --host 127.0.0.1 --tray --no-browser --skip-update"
         val ok = sendRunCommand(
             path = bashPath,
-            args = arrayOf("-c", restartCmd),
+            args = arrayOf("-lc", buildNineRouterCommand()),
             workDir = termuxWorkDir
         )
         if (!ok) {
@@ -258,12 +268,15 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        Handler(Looper.getMainLooper()).postDelayed({
-            stopPhaseSequence()
-            hideLoading()
+        pollServicePort(
+            port = 20128,
+            waitingMessage = getString(R.string.progress_9router_waiting),
+            successMessage = getString(R.string.progress_9router_connected),
+            failureMessage = getString(R.string.progress_9router_failed)
+        ) {
             Toast.makeText(this, getString(R.string.toast_9router_started), Toast.LENGTH_LONG).show()
             homeView.visibility = View.VISIBLE
-        }, 4000)
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -287,8 +300,8 @@ class MainActivity : AppCompatActivity() {
         startPhaseSequence()
 
         val step1Ok = sendRunCommand(
-            path = nineRouterPath,
-            args = arrayOf(),
+            path = bashPath,
+            args = arrayOf("-lc", buildNineRouterCommand()),
             workDir = termuxWorkDir
         )
 
@@ -301,18 +314,102 @@ class MainActivity : AppCompatActivity() {
 
         // Malo sačekamo da se 9Router podigne, pa tek onda pokrenemo glavnu skriptu.
         Handler(Looper.getMainLooper()).postDelayed({
-            sendRunCommand(
+            val step2Ok = sendRunCommand(
                 path = startScriptPath,
                 args = arrayOf(),
                 workDir = termuxWorkDir
             )
 
-            // Serveru treba par sekundi da se digne (LiteLLM + 9Router + Odysseus),
-            // pa pokušavamo ponovo učitati stranicu nakon kratke pauze.
-            Handler(Looper.getMainLooper()).postDelayed({
+            if (!step2Ok) {
+                stopPhaseSequence()
+                hideLoading()
+                homeSubtitle.text = getString(R.string.progress_servers_failed)
+                homeView.visibility = View.VISIBLE
+                return@postDelayed
+            }
+
+            pollServicePort(
+                port = 7000,
+                waitingMessage = getString(R.string.progress_servers_waiting),
+                successMessage = getString(R.string.progress_servers_connected),
+                failureMessage = getString(R.string.progress_servers_failed)
+            ) {
                 loadOdysseus()
-            }, 8000)
+            }
         }, 2000)
+    }
+
+    private fun buildNineRouterCommand(): String {
+        return """
+            export HOME=/data/data/com.termux/files/home
+            export PREFIX=/data/data/com.termux/files/usr
+            mkdir -p "${'$'}HOME/logs" "${'$'}HOME/.pids"
+            pkill -9 -f '9router' 2>/dev/null || true
+            sleep 1
+            if [ -x "${'$'}HOME/start_9router.sh" ]; then
+              "${'$'}HOME/start_9router.sh"
+            elif [ -f "${'$'}HOME/start_9router.sh" ]; then
+              chmod +x "${'$'}HOME/start_9router.sh" && "${'$'}HOME/start_9router.sh"
+            else
+              NINE_ROUTER_BIN="${'$'}PREFIX/bin/9router"
+              if [ ! -x "${'$'}NINE_ROUTER_BIN" ]; then
+                echo "9router nije instaliran: ${'$'}NINE_ROUTER_BIN" >&2
+                exit 127
+              fi
+              nohup "${'$'}NINE_ROUTER_BIN" --host 127.0.0.1 --tray --no-browser --skip-update > "${'$'}HOME/logs/9router.log" 2>&1 &
+              echo ${'$'}! > "${'$'}HOME/.pids/9router.pid"
+            fi
+        """.trimIndent()
+    }
+
+    private fun pollServicePort(
+        port: Int,
+        waitingMessage: String,
+        successMessage: String,
+        failureMessage: String,
+        onConnected: () -> Unit
+    ) {
+        stopProgressPolling()
+        loadingStatusText.text = waitingMessage
+        progressThread = Thread {
+            val deadline = System.currentTimeMillis() + SERVICE_START_TIMEOUT_MS
+            var connected = false
+            while (!Thread.currentThread().isInterrupted && System.currentTimeMillis() < deadline) {
+                if (isPortOpen(port)) {
+                    connected = true
+                    break
+                }
+                Thread.sleep(SERVICE_POLL_INTERVAL_MS)
+            }
+
+            phaseHandler.post {
+                if (isFinishing || isDestroyed) return@post
+                stopPhaseSequence()
+                hideLoading()
+                homeSubtitle.text = if (connected) successMessage else failureMessage
+                if (connected) {
+                    onConnected()
+                } else {
+                    homeView.visibility = View.VISIBLE
+                }
+            }
+        }.also { it.start() }
+    }
+
+    private fun stopProgressPolling() {
+        progressThread?.interrupt()
+        progressThread = null
+    }
+
+    private fun isPortOpen(port: Int): Boolean {
+        return try {
+            Socket().use { socket ->
+                socket.connect(InetSocketAddress("127.0.0.1", port), CONNECT_TIMEOUT_MS)
+                socket.isConnected
+            }
+        } catch (e: IOException) {
+            false
+        }
     }
 
     // ---------------------------------------------------------------------
