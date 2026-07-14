@@ -144,6 +144,7 @@ class MainActivity : AppCompatActivity() {
             )
         }
         stopPhaseSequence()
+        phaseHandler.removeCallbacksAndMessages(null)
         compassAnimator?.cancel()
         super.onDestroy()
     }
@@ -151,6 +152,8 @@ class MainActivity : AppCompatActivity() {
     private fun loadOdysseus() {
         webView.loadUrl(serverUrl)
     }
+
+    private fun isActivityAlive(): Boolean = !isFinishing && !isDestroyed
 
     private fun isTermuxInstalled(): Boolean {
         return try {
@@ -238,7 +241,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        Handler(Looper.getMainLooper()).postDelayed({
+        phaseHandler.postDelayed({
+            if (!isActivityAlive()) return@postDelayed
             stopPhaseSequence()
             hideLoading()
             Toast.makeText(this, getString(R.string.toast_9router_started), Toast.LENGTH_LONG).show()
@@ -275,22 +279,32 @@ class MainActivity : AppCompatActivity() {
         if (!step1Ok) {
             stopPhaseSequence()
             hideLoading()
+            homeSubtitle.text = getString(R.string.home_subtitle_start_failed)
             homeView.visibility = View.VISIBLE
             return
         }
 
         // Malo sačekamo da se 9Router podigne, pa tek onda pokrenemo glavnu skriptu.
-        Handler(Looper.getMainLooper()).postDelayed({
-            sendRunCommand(
+        phaseHandler.postDelayed({
+            if (!isActivityAlive()) return@postDelayed
+            val step2Ok = sendRunCommand(
                 path = startScriptPath,
                 args = arrayOf(),
                 workDir = termuxWorkDir
             )
 
+            if (!step2Ok) {
+                stopPhaseSequence()
+                hideLoading()
+                homeSubtitle.text = getString(R.string.home_subtitle_start_failed)
+                homeView.visibility = View.VISIBLE
+                return@postDelayed
+            }
+
             // Serveru treba par sekundi da se digne (LiteLLM + 9Router + Odysseus),
             // pa pokušavamo ponovo učitati stranicu nakon kratke pauze.
-            Handler(Looper.getMainLooper()).postDelayed({
-                loadOdysseus()
+            phaseHandler.postDelayed({
+                if (isActivityAlive()) loadOdysseus()
             }, 8000)
         }, 2000)
     }

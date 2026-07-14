@@ -9,8 +9,11 @@ import android.webkit.WebViewClient
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import java.io.IOException
+import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import kotlin.math.min
 
 class MainActivity : AppCompatActivity() {
     private lateinit var btn9Router: Button
@@ -30,6 +33,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusTextOdysseus: TextView
     private val handler = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
+    private var pollingTask: Future<*>? = null
+
+    companion object {
+        private const val CONNECT_TIMEOUT_MS = 500
+        private const val POLL_INTERVAL_MS = 500L
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,26 +73,35 @@ class MainActivity : AppCompatActivity() {
         checkAllServices()
     }
 
+    override fun onDestroy() {
+        cancelPollingTask()
+        handler.removeCallbacksAndMessages(null)
+        executor.shutdownNow()
+        super.onDestroy()
+    }
+
     private fun startService(service: String, port: Int) {
+        cancelPollingTask()
         showLoading()
         updateStatus(service, getString(R.string.status_starting), android.R.color.holo_orange_light)
-        executor.execute {
+        pollingTask = executor.submit {
             try {
                 Thread.sleep(2000)
-                pollPort(port, 30) { isAvailable ->
-                    handler.post {
-                        if (isAvailable) {
-                            updateStatus(service, getString(R.string.status_active), android.R.color.holo_green_dark)
-                            if (service == "odysseus") loadWebView()
-                            hideLoading()
-                        } else {
-                            updateStatus(service, getString(R.string.status_error), android.R.color.holo_red_dark)
-                            showError("Servis nije pokrenut na portu $port")
-                        }
+                val isAvailable = pollPort(port, 30)
+                postIfAlive {
+                    if (isAvailable) {
+                        updateStatus(service, getString(R.string.status_active), android.R.color.holo_green_dark)
+                        if (service == "odysseus") loadWebView()
+                        hideLoading()
+                    } else {
+                        updateStatus(service, getString(R.string.status_error), android.R.color.holo_red_dark)
+                        showError("Servis nije pokrenut na portu $port")
                     }
                 }
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
             } catch (e: Exception) {
-                handler.post {
+                postIfAlive {
                     updateStatus(service, getString(R.string.status_error), android.R.color.holo_red_dark)
                     showError("Greska: ${e.message}")
                 }
@@ -91,26 +109,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun pollPort(port: Int, maxAttempts: Int, callback: (Boolean) -> Unit) {
+    private fun pollPort(port: Int, maxAttempts: Int): Boolean {
+        val deadline = System.currentTimeMillis() + (maxAttempts * POLL_INTERVAL_MS)
         var attempts = 0
-        executor.execute {
-            while (attempts < maxAttempts) {
-                attempts++
-                try {
-                    Socket("127.0.0.1", port).use { if (it.isConnected) { callback(true); return@execute } }
-                } catch (e: IOException) {}
-                if (attempts < maxAttempts) Thread.sleep(500)
-            }
-            callback(false)
+        while (attempts < maxAttempts && !Thread.currentThread().isInterrupted) {
+            attempts++
+            if (checkPort(port, deadline)) return true
+            if (attempts < maxAttempts) Thread.sleep(POLL_INTERVAL_MS)
         }
+        return false
     }
 
     private fun checkAllServices() {
+        cancelPollingTask()
         errorView.visibility = View.GONE
         showLoading()
-        executor.execute {
+        pollingTask = executor.submit {
             val r = mapOf("9router" to checkPort(20128), "servers" to checkPort(4000), "odysseus" to checkPort(7000))
-            handler.post {
+            postIfAlive {
                 r.forEach { (s, a) ->
                     updateStatus(s, if (a) getString(R.string.status_active) else getString(R.string.status_inactive),
                         if (a) android.R.color.holo_green_dark else android.R.color.holo_orange_light)
@@ -121,7 +137,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun checkPort(port: Int): Boolean = try { Socket("127.0.0.1", port).use { it.isConnected } } catch (e: IOException) { false }
+    private fun checkPort(port: Int, deadline: Long = System.currentTimeMillis() + CONNECT_TIMEOUT_MS): Boolean {
+        val remainingMs = deadline - System.currentTimeMillis()
+        if (remainingMs <= 0L) return false
+        val timeoutMs = min(CONNECT_TIMEOUT_MS.toLong(), remainingMs).toInt()
+        return try {
+            Socket().use { socket ->
+                socket.soTimeout = timeoutMs
+                socket.connect(InetSocketAddress("127.0.0.1", port), timeoutMs)
+                socket.isConnected
+            }
+        } catch (e: IOException) {
+            false
+        }
+    }
+
+    private fun cancelPollingTask() {
+        pollingTask?.cancel(true)
+        pollingTask = null
+    }
+
+    private fun postIfAlive(action: () -> Unit) {
+        handler.post {
+            if (!isFinishing && !isDestroyed) action()
+        }
+    }
     private fun loadWebView() { webView.visibility = View.VISIBLE; webView.loadUrl("http://127.0.0.1:7000") }
     private fun showLoading() { loadingView.visibility = View.VISIBLE; mainContent.visibility = View.GONE; errorView.visibility = View.GONE }
     private fun hideLoading() { loadingView.visibility = View.GONE; mainContent.visibility = View.VISIBLE }
