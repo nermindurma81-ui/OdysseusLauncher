@@ -66,26 +66,26 @@ class MainActivity : AppCompatActivity() {
 
     private fun startService(service: String, port: Int) {
         showLoading()
-        updateStatus(service, "Pokrećem...", android.R.color.holo_green_dark)
+        updateStatus(service, getString(R.string.status_starting), android.R.color.holo_orange_light)
         executor.execute {
             try {
                 Thread.sleep(2000)
                 pollPort(port, 30) { isAvailable ->
                     handler.post {
                         if (isAvailable) {
-                            updateStatus(service, "Aktivan", android.R.color.holo_green_dark)
+                            updateStatus(service, getString(R.string.status_active), android.R.color.holo_green_dark)
                             if (service == "odysseus") loadWebView()
                             hideLoading()
                         } else {
-                            updateStatus(service, "Greška", android.R.color.holo_red_dark)
+                            updateStatus(service, getString(R.string.status_error), android.R.color.holo_red_dark)
                             showError("Servis nije pokrenut na portu $port")
                         }
                     }
                 }
             } catch (e: Exception) {
                 handler.post {
-                    updateStatus(service, "Greška", android.R.color.holo_red_dark)
-                    showError("Greška: ${e.message}")
+                    updateStatus(service, getString(R.string.status_error), android.R.color.holo_red_dark)
+                    showError("Greska: ${e.message}")
                 }
             }
         }
@@ -112,7 +112,8 @@ class MainActivity : AppCompatActivity() {
             val r = mapOf("9router" to checkPort(20128), "servers" to checkPort(4000), "odysseus" to checkPort(7000))
             handler.post {
                 r.forEach { (s, a) ->
-                    updateStatus(s, if (a) "Aktivan" else "Nije pokrenut", if (a) android.R.color.holo_green_dark else android.R.color.holo_orange_light)
+                    updateStatus(s, if (a) getString(R.string.status_active) else getString(R.string.status_inactive),
+                        if (a) android.R.color.holo_green_dark else android.R.color.holo_orange_light)
                 }
                 if (r["odysseus"] == true) loadWebView()
                 hideLoading()
@@ -121,7 +122,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkPort(port: Int): Boolean = try { Socket("127.0.0.1", port).use { it.isConnected } } catch (e: IOException) { false }
-
     private fun loadWebView() { webView.visibility = View.VISIBLE; webView.loadUrl("http://127.0.0.1:7000") }
     private fun showLoading() { loadingView.visibility = View.VISIBLE; mainContent.visibility = View.GONE; errorView.visibility = View.GONE }
     private fun hideLoading() { loadingView.visibility = View.GONE; mainContent.visibility = View.VISIBLE }
