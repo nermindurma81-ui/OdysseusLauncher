@@ -42,11 +42,11 @@ class MainActivity : AppCompatActivity() {
     private val termuxFdroidUrl = "https://f-droid.org/packages/com.termux/"
 
     // Putanje unutar Termux-a (home foldera)
-    private val termuxPrefix = "/data/data/com.termux/files/usr"
     private val startScriptPath = "/data/data/com.termux/files/home/start_all.sh"
     private val stopScriptPath = "/data/data/com.termux/files/home/stop_all.sh"
     private val termuxWorkDir = "/data/data/com.termux/files/home"
-    private val nineRouterPath = "$termuxPrefix/bin/9router"
+    // Wrapper skripta (ubija zaglavljenu instancu pa pokreće headless, bez interaktivnog menija)
+    private val nineRouterPath = "/data/data/com.termux/files/home/start_9router.sh"
 
     // Šta uraditi nakon što korisnik odobri RUN_COMMAND dozvolu
     private var pendingAction: (() -> Unit)? = null
