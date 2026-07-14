@@ -2,15 +2,14 @@
     <color name="purple_500">#6650a4</color>
     <color name="purple_700">#4a3880</color>
 
-    <!-- Odysseus brand palette (matches web app's One-Dark-ish theme) -->
-    <color name="od_bg">#282c34</color>
-    <color name="od_panel">#21252b</color>
-    <color name="od_panel_light">#2c313a</color>
-    <color name="od_border">#3a3f4b</color>
-    <color name="od_fg">#abb2bf</color>
-    <color name="od_fg_dim">#787f8c</color>
-    <color name="od_red">#e06c75</color>
-    <color name="od_red_dark">#b3555c</color>
-    <color name="od_green">#98c379</color>
-    <color name="od_white">#ffffff</color>
+    <!-- Odyssey tema: duboko more + zlato -->
+    <color name="navy_deep">#0B1B2B</color>
+    <color name="navy_mid">#122B45</color>
+    <color name="navy_light">#1E3E5C</color>
+    <color name="gold">#D4AF37</color>
+    <color name="gold_light">#E8C766</color>
+    <color name="teal">#2A9D8F</color>
+    <color name="text_primary">#F4EEDD</color>
+    <color name="text_secondary">#9FB3C8</color>
+    <color name="error_red">#E76F51</color>
 </resources>

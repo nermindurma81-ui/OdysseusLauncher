@@ -1,39 +1,42 @@
 package com.odysseus.launcher
 
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.View
-import android.webkit.ConsoleMessage
+import android.view.animation.LinearInterpolator
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.ScrollView
+import android.widget.Button
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.button.MaterialButton
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
-    private lateinit var progressBar: android.widget.ProgressBar
-    private lateinit var errorView: View
-    private lateinit var errorText: TextView
-    private lateinit var startNineRouterButton: MaterialButton
-    private lateinit var startServersButton: MaterialButton
-    private lateinit var retryButton: MaterialButton
-    private lateinit var debugLogButton: TextView
-    private lateinit var debugLogFloatingButton: TextView
+    private lateinit var homeView: View
+    private lateinit var homeSubtitle: TextView
+    private lateinit var loadingView: View
+    private lateinit var loadingLogo: ImageView
+    private lateinit var loadingStatusText: TextView
+    private lateinit var btnStart9Router: Button
+    private lateinit var btnStartServers: Button
+
+    private var compassAnimator: ObjectAnimator? = null
+    private val phaseHandler = Handler(Looper.getMainLooper())
+    private var pendingAction: (() -> Unit)? = null
 
     private val serverUrl = "http://localhost:7000"
 
@@ -42,18 +45,12 @@ class MainActivity : AppCompatActivity() {
     private val termuxFdroidUrl = "https://f-droid.org/packages/com.termux/"
 
     // Putanje unutar Termux-a (home foldera)
+    private val termuxPrefix = "/data/data/com.termux/files/usr"
     private val startScriptPath = "/data/data/com.termux/files/home/start_all.sh"
     private val stopScriptPath = "/data/data/com.termux/files/home/stop_all.sh"
     private val termuxWorkDir = "/data/data/com.termux/files/home"
-    // Wrapper skripta (ubija zaglavljenu instancu pa pokreće headless, bez interaktivnog menija)
-    private val nineRouterPath = "/data/data/com.termux/files/home/start_9router.sh"
-
-    // Šta uraditi nakon što korisnik odobri RUN_COMMAND dozvolu
-    private var pendingAction: (() -> Unit)? = null
-
-    // Sve poruke iz JS konzole Odysseus web app-a (uključujući neuhvaćene greške) —
-    // ovo nam pomaže da vidimo ZAŠTO dugmad u web app-u ne reaguju u WebView-u.
-    private val consoleLog = StringBuilder()
+    private val nineRouterPath = "$termuxPrefix/bin/9router"
+    private val bashPath = "$termuxPrefix/bin/bash"
 
     private val requestRunCommandPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -71,23 +68,17 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webView)
-        progressBar = findViewById(R.id.progressBar)
-        errorView = findViewById(R.id.errorView)
-        errorText = findViewById(R.id.errorText)
-        startNineRouterButton = findViewById(R.id.startNineRouterButton)
-        startServersButton = findViewById(R.id.startServersButton)
-        retryButton = findViewById(R.id.retryButton)
-        debugLogButton = findViewById(R.id.debugLogButton)
-        debugLogFloatingButton = findViewById(R.id.debugLogFloatingButton)
+        homeView = findViewById(R.id.homeView)
+        homeSubtitle = findViewById(R.id.homeSubtitle)
+        loadingView = findViewById(R.id.loadingView)
+        loadingLogo = findViewById(R.id.loadingLogo)
+        loadingStatusText = findViewById(R.id.loadingStatusText)
 
-        retryButton.setOnClickListener { loadOdysseus() }
-        startNineRouterButton.setOnClickListener { onStartNineRouterClicked() }
-        startServersButton.setOnClickListener { onStartServersClicked() }
-        debugLogButton.setOnClickListener { showDebugLogDialog() }
-        debugLogFloatingButton.setOnClickListener { showDebugLogDialog() }
+        btnStart9Router = findViewById(R.id.btnStart9Router)
+        btnStart9Router.setOnClickListener { onStart9RouterClicked() }
 
-        // Omogući inspekciju preko chrome://inspect na računaru (opciono, ali korisno).
-        WebView.setWebContentsDebuggingEnabled(true)
+        btnStartServers = findViewById(R.id.btnStartServers)
+        btnStartServers.setOnClickListener { onStartServersClicked() }
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -95,44 +86,19 @@ class MainActivity : AppCompatActivity() {
         webView.settings.allowFileAccess = true
         webView.settings.mediaPlaybackRequiresUserGesture = false
 
-        webView.webChromeClient = object : WebChromeClient() {
-            // Hvata SVE poruke iz JS konzole Odysseus web app-a — uključujući
-            // neuhvaćene JS greške (browseri ih automatski loguju kao console errore).
-            // Ovo je ključno za dijagnostiku "dugmad ne reaguju" problema.
-            override fun onConsoleMessage(message: ConsoleMessage?): Boolean {
-                message ?: return false
-                val line = "[${message.messageLevel()}] ${message.message()} " +
-                        "(${message.sourceId()}:${message.lineNumber()})"
-                Log.d("OdysseusJS", line)
-                consoleLog.append(line).append("\n\n")
-
-                if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        getString(R.string.debug_log_js_error_toast),
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-                return true
-            }
-        }
-
+        webView.webChromeClient = WebChromeClient()
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                progressBar.visibility = View.VISIBLE
-                errorView.visibility = View.GONE
-                webView.visibility = View.GONE
-                debugLogFloatingButton.visibility = View.GONE
+                showLoading(getString(R.string.phase_checking))
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                progressBar.visibility = View.GONE
+                stopPhaseSequence()
+                hideLoading()
+                homeView.visibility = View.GONE
                 webView.visibility = View.VISIBLE
-                // Ostavi debug dugme dostupno i dok gledaš samu Odysseus stranicu,
-                // za slučaj da neko dugme unutra ne reaguje.
-                debugLogFloatingButton.visibility = View.VISIBLE
             }
 
             override fun onReceivedError(
@@ -142,18 +108,18 @@ class MainActivity : AppCompatActivity() {
             ) {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame == true) {
-                    progressBar.visibility = View.GONE
+                    stopPhaseSequence()
+                    hideLoading()
                     webView.visibility = View.GONE
-                    debugLogFloatingButton.visibility = View.GONE
-                    errorView.visibility = View.VISIBLE
-                    errorText.text = getString(R.string.connection_error, serverUrl)
+                    homeSubtitle.text = getString(R.string.home_subtitle_error)
+                    homeView.visibility = View.VISIBLE
                 }
             }
         }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (webView.canGoBack()) {
+                if (webView.visibility == View.VISIBLE && webView.canGoBack()) {
                     webView.goBack()
                 } else {
                     isEnabled = false
@@ -162,6 +128,8 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        // Tihi pokušaj konekcije u pozadini — ako server već radi (npr. nakon rotacije
+        // ekrana ili background/foreground), preskačemo home ekran direktno na WebView.
         loadOdysseus()
     }
 
@@ -175,11 +143,12 @@ class MainActivity : AppCompatActivity() {
                 workDir = termuxWorkDir
             )
         }
+        stopPhaseSequence()
+        compassAnimator?.cancel()
         super.onDestroy()
     }
 
     private fun loadOdysseus() {
-        errorView.visibility = View.GONE
         webView.loadUrl(serverUrl)
     }
 
@@ -192,56 +161,164 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Osigurava da je Termux instaliran i da imamo RUN_COMMAND dozvolu prije nego što izvršimo [action]. */
-    private fun withTermuxPermission(action: () -> Unit) {
-        if (!isTermuxInstalled()) {
-            Toast.makeText(this, getString(R.string.termux_not_installed), Toast.LENGTH_LONG).show()
-            try {
-                startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(termuxFdroidUrl)))
-            } catch (e: Exception) { /* nema browsera, samo ignoriši */ }
+    // ---------------------------------------------------------------------
+    // UI stanja: home / loading / webview
+    // ---------------------------------------------------------------------
+
+    private fun showLoading(initialPhase: String) {
+        webView.visibility = View.GONE
+        homeView.visibility = View.GONE
+        loadingView.visibility = View.VISIBLE
+        loadingStatusText.text = initialPhase
+        startCompassAnimation()
+    }
+
+    private fun hideLoading() {
+        loadingView.visibility = View.GONE
+        compassAnimator?.cancel()
+    }
+
+    private fun startCompassAnimation() {
+        if (compassAnimator?.isRunning == true) return
+        compassAnimator = ObjectAnimator.ofFloat(loadingLogo, View.ROTATION, 0f, 360f).apply {
+            duration = 2400
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = LinearInterpolator()
+            start()
+        }
+    }
+
+    /** Ciklično mijenja tekst statusa dok čekamo da se serveri podignu. */
+    private val phaseRunnable = object : Runnable {
+        var step = 0
+        override fun run() {
+            val phases = listOf(
+                getString(R.string.phase_9router),
+                getString(R.string.phase_litellm),
+                getString(R.string.phase_odysseus)
+            )
+            loadingStatusText.text = phases[step % phases.size]
+            step++
+            phaseHandler.postDelayed(this, 2500)
+        }
+    }
+
+    private fun startPhaseSequence() {
+        phaseRunnable.step = 0
+        phaseHandler.removeCallbacks(phaseRunnable)
+        phaseHandler.post(phaseRunnable)
+    }
+
+    private fun stopPhaseSequence() {
+        phaseHandler.removeCallbacks(phaseRunnable)
+    }
+
+    // ---------------------------------------------------------------------
+    // Dugme 1: pokreni SAMO 9Router
+    // ---------------------------------------------------------------------
+
+    private fun onStart9RouterClicked() {
+        if (!ensureTermuxReady { onStart9RouterClicked() }) return
+
+        Toast.makeText(this, getString(R.string.toast_9router_starting), Toast.LENGTH_SHORT).show()
+        showLoading(getString(R.string.phase_9router))
+        startPhaseSequence()
+
+        // pkill pa ponovo pokreni 9router (rješava slučaj kad je proces "obješen").
+        val restartCmd = "pkill -9 -f 9router; sleep 1; $nineRouterPath --host 127.0.0.1 --tray --no-browser --skip-update"
+        val ok = sendRunCommand(
+            path = bashPath,
+            args = arrayOf("-c", restartCmd),
+            workDir = termuxWorkDir
+        )
+        if (!ok) {
+            stopPhaseSequence()
+            hideLoading()
+            homeView.visibility = View.VISIBLE
             return
         }
 
-        val permission = "com.termux.permission.RUN_COMMAND"
-        val alreadyGranted = checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
-
-        if (alreadyGranted) {
-            action()
-        } else {
-            pendingAction = action
-            requestRunCommandPermission.launch(permission)
-        }
+        Handler(Looper.getMainLooper()).postDelayed({
+            stopPhaseSequence()
+            hideLoading()
+            Toast.makeText(this, getString(R.string.toast_9router_started), Toast.LENGTH_LONG).show()
+            homeView.visibility = View.VISIBLE
+        }, 4000)
     }
 
-    /** Dugme "🔀 Pokreni 9Router" — pokreće SAMO 9Router. */
-    private fun onStartNineRouterClicked() {
-        withTermuxPermission {
-            Toast.makeText(this, getString(R.string.starting_nine_router), Toast.LENGTH_SHORT).show()
-            sendRunCommand(
-                path = nineRouterPath,
-                args = arrayOf(),
-                workDir = termuxWorkDir
-            )
-        }
-    }
+    // ---------------------------------------------------------------------
+    // Dugme 2: pokreni sve servere (9Router + LiteLLM + Odysseus)
+    // ---------------------------------------------------------------------
 
-    /** Dugme "▶️ Pokreni servere" — pokreće start_all.sh (LiteLLM + Odysseus; preskače 9Router ako je već gore). */
     private fun onStartServersClicked() {
-        withTermuxPermission {
-            Toast.makeText(this, getString(R.string.starting_servers), Toast.LENGTH_SHORT).show()
+        if (!ensureTermuxReady { onStartServersClicked() }) return
+        startEverything()
+    }
+
+    /**
+     * Pokreće Termux (F-Droid build) potpuno u pozadini — bez otvaranja terminala —
+     * tako što šalje RUN_COMMAND intente RunCommandService-u. Redoslijed:
+     *   1) komanda "9router"
+     *   2) skripta "./start_all.sh" (koja podiže LiteLLM + Odysseus, i preskače 9Router
+     *      ako je već pokrenut korakom 1)
+     */
+    private fun startEverything() {
+        showLoading(getString(R.string.phase_9router))
+        startPhaseSequence()
+
+        val step1Ok = sendRunCommand(
+            path = nineRouterPath,
+            args = arrayOf(),
+            workDir = termuxWorkDir
+        )
+
+        if (!step1Ok) {
+            stopPhaseSequence()
+            hideLoading()
+            homeView.visibility = View.VISIBLE
+            return
+        }
+
+        // Malo sačekamo da se 9Router podigne, pa tek onda pokrenemo glavnu skriptu.
+        Handler(Looper.getMainLooper()).postDelayed({
             sendRunCommand(
                 path = startScriptPath,
                 args = arrayOf(),
                 workDir = termuxWorkDir
             )
 
-            errorText.text = getString(R.string.status_waiting)
-
-            // Serveru treba par sekundi da se digne, pa pokušavamo ponovo učitati stranicu.
+            // Serveru treba par sekundi da se digne (LiteLLM + 9Router + Odysseus),
+            // pa pokušavamo ponovo učitati stranicu nakon kratke pauze.
             Handler(Looper.getMainLooper()).postDelayed({
                 loadOdysseus()
             }, 8000)
+        }, 2000)
+    }
+
+    // ---------------------------------------------------------------------
+    // Termux / dozvole
+    // ---------------------------------------------------------------------
+
+    /** Vraća true ako je Termux spreman (instaliran + dozvola odobrena). Inače pokreće flow za dobijanje dozvole i vraća false. */
+    private fun ensureTermuxReady(retryAction: () -> Unit): Boolean {
+        if (!isTermuxInstalled()) {
+            Toast.makeText(this, getString(R.string.termux_not_installed), Toast.LENGTH_LONG).show()
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(termuxFdroidUrl)))
+            } catch (e: Exception) { /* nema browsera, samo ignoriši */ }
+            return false
         }
+
+        val permission = "com.termux.permission.RUN_COMMAND"
+        val alreadyGranted = checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+
+        if (!alreadyGranted) {
+            pendingAction = retryAction
+            requestRunCommandPermission.launch(permission)
+            return false
+        }
+
+        return true
     }
 
     private fun sendRunCommand(path: String, args: Array<String>, workDir: String): Boolean {
@@ -265,28 +342,5 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.termux_not_found), Toast.LENGTH_LONG).show()
             false
         }
-    }
-
-    /** Prikazuje sve zabilježene JS konzol poruke iz Odysseus web app-a (za dijagnostiku "dugmad ne rade"). */
-    private fun showDebugLogDialog() {
-        val content = if (consoleLog.isEmpty()) getString(R.string.debug_log_empty) else consoleLog.toString()
-
-        val textView = TextView(this).apply {
-            text = content
-            setTextIsSelectable(true)
-            setPadding(32, 24, 32, 24)
-            setTextColor(getColor(R.color.od_fg))
-            textSize = 12f
-        }
-        val scroll = ScrollView(this).apply { addView(textView) }
-
-        AlertDialog.Builder(this)
-            .setTitle(R.string.debug_log_title)
-            .setView(scroll)
-            .setPositiveButton(R.string.debug_log_close, null)
-            .setNegativeButton(R.string.debug_log_clear) { _, _ ->
-                consoleLog.clear()
-            }
-            .show()
     }
 }
