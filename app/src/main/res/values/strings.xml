@@ -31,5 +31,10 @@
     <string name="phase_checking">Provjeravam server…</string>
 
     <!-- Vidljiva oznaka verzije radi provjere koji je build instaliran -->
-    <string name="build_tag">v1.3-navigation-fix</string>
+    <string name="build_tag">v1.4-status-indicator</string>
+
+    <!-- Status indikatori za 9Router -->
+    <string name="status_9router_running">9Router: POKRENUT</string>
+    <string name="status_9router_stopped">9Router: UGASEN</string>
+    <string name="status_9router_checking">9Router: Provjeravam…</string>
 </resources>
