@@ -56,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     private val startScriptPath = "/data/data/com.termux/files/home/start_all.sh"
     private val stopScriptPath = "/data/data/com.termux/files/home/stop_all.sh"
     private val termuxWorkDir = "/data/data/com.termux/files/home"
+    private val nineRouterScriptPath = "/data/data/com.termux/files/home/start_9router.sh"
     private val nineRouterPath = "$termuxPrefix/bin/9router"
     private val bashPath = "$termuxPrefix/bin/bash"
 
@@ -255,10 +256,10 @@ class MainActivity : AppCompatActivity() {
         showLoading(getString(R.string.phase_9router))
         startPhaseSequence()
 
-        // pkill pa ponovo pokreni 9router (rješava slučaj kad je proces "obješen").
+        // Koristi wrapper skriptu umjesto direktnog poziva binarne
         val ok = sendRunCommand(
-            path = bashPath,
-            args = arrayOf("-lc", buildNineRouterCommand()),
+            path = nineRouterScriptPath,
+            args = arrayOf(),
             workDir = termuxWorkDir
         )
         if (!ok) {
@@ -268,15 +269,12 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        pollServicePort(
-            port = 20128,
-            waitingMessage = getString(R.string.progress_9router_waiting),
-            successMessage = getString(R.string.progress_9router_connected),
-            failureMessage = getString(R.string.progress_9router_failed)
-        ) {
-            Toast.makeText(this, getString(R.string.toast_9router_started), Toast.LENGTH_LONG).show()
+        phaseHandler.postDelayed({
+            stopPhaseSequence()
+            hideLoading()
             homeView.visibility = View.VISIBLE
-        }
+            homeSubtitle.text = getString(R.string.home_subtitle_9router_started)
+        }, 6000)
     }
 
     // ---------------------------------------------------------------------
