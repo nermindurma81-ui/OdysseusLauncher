@@ -22,6 +22,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
+import java.io.IOException
+import java.net.Socket
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
@@ -34,8 +37,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var retryButton: MaterialButton
     private lateinit var debugLogButton: TextView
     private lateinit var debugLogFloatingButton: TextView
+    private lateinit var startupProgressPanel: View
+    private lateinit var startupProgressBar: android.widget.ProgressBar
+    private lateinit var startupProgressText: TextView
 
     private val serverUrl = "http://localhost:7000"
+    private val handler = Handler(Looper.getMainLooper())
+    private val executor = Executors.newSingleThreadExecutor()
 
     // Termux (F-Droid / GitHub build) paket ID — isti za obje distribucije
     private val termuxPackage = "com.termux"
@@ -45,8 +53,7 @@ class MainActivity : AppCompatActivity() {
     private val startScriptPath = "/data/data/com.termux/files/home/start_all.sh"
     private val stopScriptPath = "/data/data/com.termux/files/home/stop_all.sh"
     private val termuxWorkDir = "/data/data/com.termux/files/home"
-    // Wrapper skripta (ubija zaglavljenu instancu pa pokreće headless, bez interaktivnog menija)
-    private val nineRouterPath = "/data/data/com.termux/files/home/start_9router.sh"
+    private val termuxBashPath = "/data/data/com.termux/files/usr/bin/bash"
 
     // Šta uraditi nakon što korisnik odobri RUN_COMMAND dozvolu
     private var pendingAction: (() -> Unit)? = null
@@ -79,6 +86,9 @@ class MainActivity : AppCompatActivity() {
         retryButton = findViewById(R.id.retryButton)
         debugLogButton = findViewById(R.id.debugLogButton)
         debugLogFloatingButton = findViewById(R.id.debugLogFloatingButton)
+        startupProgressPanel = findViewById(R.id.startupProgressPanel)
+        startupProgressBar = findViewById(R.id.startupProgressBar)
+        startupProgressText = findViewById(R.id.startupProgressText)
 
         retryButton.setOnClickListener { loadOdysseus() }
         startNineRouterButton.setOnClickListener { onStartNineRouterClicked() }
@@ -218,9 +228,32 @@ class MainActivity : AppCompatActivity() {
         withTermuxPermission {
             Toast.makeText(this, getString(R.string.starting_nine_router), Toast.LENGTH_SHORT).show()
             sendRunCommand(
-                path = nineRouterPath,
-                args = arrayOf(),
+                path = termuxBashPath,
+                args = arrayOf(
+                    "-lc",
+                    """
+                    source ~/.bashrc 2>/dev/null || true
+                    mkdir -p "${'$'}HOME/logs" "${'$'}HOME/.pids"
+                    if curl -s -o /dev/null --max-time 1 http://127.0.0.1:20128; then
+                      exit 0
+                    fi
+                    NINE_ROUTER_BIN="/data/data/com.termux/files/usr/bin/9router"
+                    if [ -x "${'$'}NINE_ROUTER_BIN" ]; then
+                      nohup "${'$'}NINE_ROUTER_BIN" --host 127.0.0.1 --tray --no-browser --skip-update > "${'$'}HOME/logs/9router.log" 2>&1 &
+                      echo ${'$'}! > "${'$'}HOME/.pids/9router.pid"
+                    else
+                      echo "9router binary nije pronađen: ${'$'}NINE_ROUTER_BIN" > "${'$'}HOME/logs/9router.log"
+                      exit 127
+                    fi
+                    """.trimIndent()
+                ),
                 workDir = termuxWorkDir
+            )
+            beginStartupProgress(
+                targets = listOf(ServiceTarget("9Router", 20128)),
+                initialMessage = getString(R.string.startup_progress_nine_router),
+                successMessage = getString(R.string.startup_progress_nine_router_ready),
+                openWhenReady = false
             )
         }
     }
@@ -236,11 +269,86 @@ class MainActivity : AppCompatActivity() {
             )
 
             errorText.text = getString(R.string.status_waiting)
+            beginStartupProgress(
+                targets = listOf(
+                    ServiceTarget("9Router", 20128),
+                    ServiceTarget("LiteLLM", 4000),
+                    ServiceTarget("Odysseus", 7000)
+                ),
+                initialMessage = getString(R.string.startup_progress_starting),
+                successMessage = getString(R.string.startup_progress_ready),
+                openWhenReady = true
+            )
+        }
+    }
 
-            // Serveru treba par sekundi da se digne, pa pokušavamo ponovo učitati stranicu.
-            Handler(Looper.getMainLooper()).postDelayed({
-                loadOdysseus()
-            }, 8000)
+    private data class ServiceTarget(val name: String, val port: Int)
+
+    private fun beginStartupProgress(
+        targets: List<ServiceTarget>,
+        initialMessage: String,
+        successMessage: String,
+        openWhenReady: Boolean
+    ) {
+        startupProgressPanel.visibility = View.VISIBLE
+        startupProgressBar.max = targets.size
+        startupProgressBar.progress = 0
+        startupProgressText.text = initialMessage
+        startNineRouterButton.isEnabled = false
+        startServersButton.isEnabled = false
+
+        executor.execute {
+            val ready = linkedSetOf<String>()
+            val deadline = System.currentTimeMillis() + 45_000
+
+            while (System.currentTimeMillis() < deadline && ready.size < targets.size) {
+                targets.forEach { target ->
+                    if (target.name !in ready && isPortOpen(target.port)) {
+                        ready.add(target.name)
+                    }
+                }
+
+                val missing = targets.map { it.name }.filterNot { it in ready }
+                handler.post {
+                    startupProgressBar.progress = ready.size
+                    startupProgressText.text = if (missing.isEmpty()) {
+                        successMessage
+                    } else {
+                        getString(R.string.startup_progress_partial, missing.joinToString(", "))
+                    }
+                }
+
+                if (ready.size < targets.size) {
+                    Thread.sleep(1_000)
+                }
+            }
+
+            val missing = targets.map { it.name }.filterNot { it in ready }
+            handler.post {
+                startNineRouterButton.isEnabled = true
+                startServersButton.isEnabled = true
+                if (missing.isEmpty()) {
+                    startupProgressBar.progress = targets.size
+                    startupProgressText.text = successMessage
+                    if (openWhenReady) loadOdysseus()
+                } else {
+                    startupProgressText.text = getString(
+                        R.string.startup_progress_failed,
+                        missing.joinToString(", ")
+                    )
+                }
+            }
+        }
+    }
+
+    private fun isPortOpen(port: Int): Boolean {
+        return try {
+            Socket("127.0.0.1", port).use { socket ->
+                socket.soTimeout = 500
+                socket.isConnected
+            }
+        } catch (e: IOException) {
+            false
         }
     }
 
