@@ -52,18 +52,14 @@ fi
 
 # ── 2. 9ROUTER (:20128) ────────────────────────────────────
 NINE_ROUTER_BIN="/data/data/com.termux/files/usr/bin/9router"
-if [ ! -x "$NINE_ROUTER_BIN" ]; then
-  NINE_ROUTER_BIN="$(command -v 9router || true)"
-fi
 if check_port 20128 "9Router"; then
-  if [ -n "$NINE_ROUTER_BIN" ] && [ -x "$NINE_ROUTER_BIN" ]; then
+  if [ -x "$NINE_ROUTER_BIN" ]; then
     echo -e "${GREEN}[+]${NC} Pokrećem 9Router na :20128..."
-    # Termux nema desktop tray; --tray može srušiti 9Router prije nego što otvori port.
-    nohup "$NINE_ROUTER_BIN" --host 127.0.0.1 --no-browser --skip-update \
+    nohup "$NINE_ROUTER_BIN" --host 127.0.0.1 --tray --no-browser --skip-update \
       > "$LOG_DIR/9router.log" 2>&1 &
     echo $! > "$PID_DIR/9router.pid"
   else
-    echo -e "${YELLOW}[!]${NC} 9router nije nađen u /data/data/com.termux/files/usr/bin ili PATH. Preskačem."
+    echo -e "${YELLOW}[!]${NC} 9router ($NINE_ROUTER_BIN) nije nađen (nije instaliran?). Preskačem."
   fi
 fi
 

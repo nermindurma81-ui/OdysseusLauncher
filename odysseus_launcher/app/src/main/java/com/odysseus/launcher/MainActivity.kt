@@ -3,7 +3,6 @@ package com.odysseus.launcher
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -23,9 +22,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
-import java.io.IOException
-import java.net.Socket
-import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
@@ -40,8 +36,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var debugLogFloatingButton: TextView
 
     private val serverUrl = "http://localhost:7000"
-    private val handler = Handler(Looper.getMainLooper())
-    private val executor = Executors.newSingleThreadExecutor()
 
     // Termux (F-Droid / GitHub build) paket ID — isti za obje distribucije
     private val termuxPackage = "com.termux"
@@ -51,7 +45,8 @@ class MainActivity : AppCompatActivity() {
     private val startScriptPath = "/data/data/com.termux/files/home/start_all.sh"
     private val stopScriptPath = "/data/data/com.termux/files/home/stop_all.sh"
     private val termuxWorkDir = "/data/data/com.termux/files/home"
-    private val termuxBashPath = "/data/data/com.termux/files/usr/bin/bash"
+    // Wrapper skripta (ubija zaglavljenu instancu pa pokreće headless, bez interaktivnog menija)
+    private val nineRouterPath = "/data/data/com.termux/files/home/start_9router.sh"
 
     // Šta uraditi nakon što korisnik odobri RUN_COMMAND dozvolu
     private var pendingAction: (() -> Unit)? = null
@@ -222,38 +217,10 @@ class MainActivity : AppCompatActivity() {
     private fun onStartNineRouterClicked() {
         withTermuxPermission {
             Toast.makeText(this, getString(R.string.starting_nine_router), Toast.LENGTH_SHORT).show()
-            val commandSent = sendRunCommand(
-                path = termuxBashPath,
-                args = arrayOf(
-                    "-lc",
-                    """
-                    source ~/.bashrc 2>/dev/null || true
-                    mkdir -p "${'$'}HOME/logs" "${'$'}HOME/.pids"
-                    if curl -s -o /dev/null --max-time 1 http://127.0.0.1:20128; then
-                      exit 0
-                    fi
-                    NINE_ROUTER_BIN="/data/data/com.termux/files/usr/bin/9router"
-                    if [ ! -x "${'$'}NINE_ROUTER_BIN" ]; then
-                      NINE_ROUTER_BIN="${'$'}(command -v 9router || true)"
-                    fi
-                    if [ -n "${'$'}NINE_ROUTER_BIN" ] && [ -x "${'$'}NINE_ROUTER_BIN" ]; then
-                      # Termux nema desktop tray; --tray zna da sruši 9Router prije otvaranja porta.
-                      nohup "${'$'}NINE_ROUTER_BIN" --host 127.0.0.1 --no-browser --skip-update > "${'$'}HOME/logs/9router.log" 2>&1 &
-                      echo ${'$'}! > "${'$'}HOME/.pids/9router.pid"
-                    else
-                      echo "9router binary nije pronađen u /data/data/com.termux/files/usr/bin ili PATH" > "${'$'}HOME/logs/9router.log"
-                      exit 127
-                    fi
-                    """.trimIndent()
-                ),
+            sendRunCommand(
+                path = nineRouterPath,
+                args = arrayOf(),
                 workDir = termuxWorkDir
-            )
-            if (!commandSent) return@withTermuxPermission
-            beginStartupProgress(
-                targets = listOf(ServiceTarget("9Router", 20128)),
-                initialMessage = getString(R.string.startup_progress_nine_router),
-                successMessage = getString(R.string.startup_progress_nine_router_ready),
-                openWhenReady = false
             )
         }
     }
@@ -262,101 +229,18 @@ class MainActivity : AppCompatActivity() {
     private fun onStartServersClicked() {
         withTermuxPermission {
             Toast.makeText(this, getString(R.string.starting_servers), Toast.LENGTH_SHORT).show()
-            val commandSent = sendRunCommand(
-                path = termuxBashPath,
-                args = arrayOf(startScriptPath),
+            sendRunCommand(
+                path = startScriptPath,
+                args = arrayOf(),
                 workDir = termuxWorkDir
             )
-            if (!commandSent) return@withTermuxPermission
 
             errorText.text = getString(R.string.status_waiting)
-            beginStartupProgress(
-                targets = listOf(
-                    ServiceTarget("9Router", 20128),
-                    ServiceTarget("LiteLLM", 4000),
-                    ServiceTarget("Odysseus", 7000)
-                ),
-                initialMessage = getString(R.string.startup_progress_starting),
-                successMessage = getString(R.string.startup_progress_ready),
-                openWhenReady = true
-            )
-        }
-    }
 
-    private data class ServiceTarget(val name: String, val port: Int)
-
-    private fun beginStartupProgress(
-        targets: List<ServiceTarget>,
-        initialMessage: String,
-        successMessage: String,
-        openWhenReady: Boolean
-    ) {
-        errorText.text = initialMessage
-        startNineRouterButton.isEnabled = false
-        startServersButton.isEnabled = false
-        retryButton.isEnabled = false
-
-        executor.execute {
-            val ready = linkedSetOf<String>()
-            val startedAt = System.currentTimeMillis()
-            val timeoutMs = 45_000L
-            val deadline = startedAt + timeoutMs
-
-            while (System.currentTimeMillis() < deadline && ready.size < targets.size) {
-                targets.forEach { target ->
-                    if (target.name !in ready && isPortOpen(target.port)) {
-                        ready.add(target.name)
-                    }
-                }
-
-                val elapsed = System.currentTimeMillis() - startedAt
-                val percent = maxOf(5, minOf(99, ((elapsed * 100) / timeoutMs).toInt()))
-                val missing = targets.map { it.name }.filterNot { it in ready }
-                handler.post {
-                    errorText.text = if (missing.isEmpty()) {
-                        successMessage
-                    } else {
-                        "${visualProgress(percent)} ${percent}%\n" +
-                                getString(R.string.startup_progress_partial, missing.joinToString(", "))
-                    }
-                }
-
-                if (ready.size < targets.size) {
-                    Thread.sleep(1_000)
-                }
-            }
-
-            val missing = targets.map { it.name }.filterNot { it in ready }
-            handler.post {
-                startNineRouterButton.isEnabled = true
-                startServersButton.isEnabled = true
-                retryButton.isEnabled = true
-                if (missing.isEmpty()) {
-                    errorText.text = "${visualProgress(100)} 100%\n$successMessage"
-                    if (openWhenReady) loadOdysseus()
-                } else {
-                    errorText.text = getString(
-                        R.string.startup_progress_failed,
-                        missing.joinToString(", ")
-                    )
-                }
-            }
-        }
-    }
-
-    private fun visualProgress(percent: Int): String {
-        val filled = percent / 10
-        return "▰".repeat(filled) + "▱".repeat(10 - filled)
-    }
-
-    private fun isPortOpen(port: Int): Boolean {
-        return try {
-            Socket("127.0.0.1", port).use { socket ->
-                socket.soTimeout = 500
-                socket.isConnected
-            }
-        } catch (e: IOException) {
-            false
+            // Serveru treba par sekundi da se digne, pa pokušavamo ponovo učitati stranicu.
+            Handler(Looper.getMainLooper()).postDelayed({
+                loadOdysseus()
+            }, 8000)
         }
     }
 
@@ -372,11 +256,7 @@ class MainActivity : AppCompatActivity() {
             intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
             intent.putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent)
-            } else {
-                startService(intent)
-            }
+            startForegroundService(intent)
             true
         } catch (e: SecurityException) {
             Toast.makeText(this, getString(R.string.termux_not_found), Toast.LENGTH_LONG).show()
