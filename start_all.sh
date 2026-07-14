@@ -51,14 +51,15 @@ if check_port 4000 "LiteLLM"; then
 fi
 
 # ── 2. 9ROUTER (:20128) ────────────────────────────────────
+NINE_ROUTER_BIN="/data/data/com.termux/files/usr/bin/9router"
 if check_port 20128 "9Router"; then
-  if command -v 9router >/dev/null 2>&1; then
+  if [ -x "$NINE_ROUTER_BIN" ]; then
     echo -e "${GREEN}[+]${NC} Pokrećem 9Router na :20128..."
-    nohup 9router --host 127.0.0.1 --tray --no-browser --skip-update \
+    nohup "$NINE_ROUTER_BIN" --host 127.0.0.1 --tray --no-browser --skip-update \
       > "$LOG_DIR/9router.log" 2>&1 &
     echo $! > "$PID_DIR/9router.pid"
   else
-    echo -e "${YELLOW}[!]${NC} 9router komanda nije nađena (nije instaliran?). Preskačem."
+    echo -e "${YELLOW}[!]${NC} 9router ($NINE_ROUTER_BIN) nije nađen (nije instaliran?). Preskačem."
   fi
 fi
 
