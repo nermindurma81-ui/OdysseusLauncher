@@ -20,6 +20,14 @@ echo "  ║   Pokretanje svih servisa...              ║"
 echo "  ╚══════════════════════════════════════════╝"
 echo -e "${NC}"
 
+# ── Wake lock — spriječi Android da ugasi Termux u pozadini ──
+if command -v termux-wake-lock >/dev/null 2>&1; then
+  termux-wake-lock
+  echo -e "${GREEN}[+]${NC} Wake lock aktiviran (Termux neće biti ubijen u pozadini)."
+else
+  echo -e "${YELLOW}[!]${NC} termux-wake-lock nije nađen. Instaliraj: pkg install termux-api"
+fi
+
 # ── Provjera da nešto već ne radi na tim portovima ────────
 check_port() {
   local port="$1" name="$2"
@@ -46,7 +54,8 @@ fi
 if check_port 20128 "9Router"; then
   if command -v 9router >/dev/null 2>&1; then
     echo -e "${GREEN}[+]${NC} Pokrećem 9Router na :20128..."
-    nohup 9router --host 127.0.0.1 --tray --no-browser --skip-update > "$LOG_DIR/9router.log" 2>&1 &
+    nohup 9router --host 127.0.0.1 --tray --no-browser --skip-update \
+      > "$LOG_DIR/9router.log" 2>&1 &
     echo $! > "$PID_DIR/9router.pid"
   else
     echo -e "${YELLOW}[!]${NC} 9router komanda nije nađena (nije instaliran?). Preskačem."
@@ -60,20 +69,23 @@ for i in 1 2 3 4 5 6 7 8; do
 done
 echo ""
 
-# ── 3. ODYSSEUS (:7000) — foreground, glavni proces ───────
+# ── 3. ODYSSEUS (:7000) — pozadinski proces ────────────────
 if check_port 7000 "Odysseus"; then
   echo -e "${GREEN}[+]${NC} Pokrećem Odysseus na :7000..."
-  echo ""
-  echo -e "${CYAN}════════════════════════════════════════${NC}"
-  echo -e "  Odysseus:  ${GREEN}http://127.0.0.1:7000${NC}"
-  echo -e "  LiteLLM:   ${GREEN}http://127.0.0.1:4000${NC}  (log: ~/logs/litellm.log)"
-  echo -e "  9Router:   ${GREEN}http://127.0.0.1:20128${NC} (log: ~/logs/9router.log)"
-  echo -e "${CYAN}════════════════════════════════════════${NC}"
-  echo ""
-  echo "  Ctrl+C zaustavlja Odysseus (LiteLLM/9Router ostaju u pozadini)."
-  echo "  Za gašenje svega: ~/stop_all.sh"
-  echo ""
-  cd ~/odysseus && python app.py
+  cd ~/odysseus
+  nohup python app.py > "$LOG_DIR/odysseus.log" 2>&1 &
+  echo $! > "$PID_DIR/odysseus.pid"
+  cd - > /dev/null
 else
   echo -e "${YELLOW}[!]${NC} Odysseus već radi na :7000 — ništa novo pokrenuto."
 fi
+
+echo ""
+echo -e "${CYAN}════════════════════════════════════════${NC}"
+echo -e "  Odysseus:  ${GREEN}http://127.0.0.1:7000${NC}  (log: ~/logs/odysseus.log)"
+echo -e "  LiteLLM:   ${GREEN}http://127.0.0.1:4000${NC}  (log: ~/logs/litellm.log)"
+echo -e "  9Router:   ${GREEN}http://127.0.0.1:20128${NC} (log: ~/logs/9router.log)"
+echo -e "${CYAN}════════════════════════════════════════${NC}"
+echo ""
+echo "  Za gašenje svega: ~/stop_all.sh"
+echo ""
