@@ -22,6 +22,16 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.Dispatchers
+import java.net.HttpURLConnection
+import java.net.URL
 
 class MainActivity : AppCompatActivity() {
 
@@ -37,6 +47,14 @@ class MainActivity : AppCompatActivity() {
     private var compassAnimator: ObjectAnimator? = null
     private val phaseHandler = Handler(Looper.getMainLooper())
     private var pendingAction: (() -> Unit)? = null
+    private var startupJob: Job? = null
+
+    companion object {
+        private const val STARTUP_TIMEOUT_MS = 45_000L
+        private const val STARTUP_POLL_INTERVAL_MS = 750L
+        private const val HTTP_CONNECT_TIMEOUT_MS = 750
+        private const val HTTP_READ_TIMEOUT_MS = 750
+    }
 
     private val serverUrl = "http://localhost:7000"
 
@@ -95,6 +113,7 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                cancelStartupProgress()
                 stopPhaseSequence()
                 hideLoading()
                 homeView.visibility = View.GONE
@@ -143,6 +162,7 @@ class MainActivity : AppCompatActivity() {
                 workDir = termuxWorkDir
             )
         }
+        cancelStartupProgress()
         stopPhaseSequence()
         phaseHandler.removeCallbacksAndMessages(null)
         compassAnimator?.cancel()
@@ -154,6 +174,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isActivityAlive(): Boolean = !isFinishing && !isDestroyed
+
+    private fun cancelStartupProgress() {
+        startupJob?.cancel()
+        startupJob = null
+    }
 
     private fun isTermuxInstalled(): Boolean {
         return try {
@@ -223,6 +248,8 @@ class MainActivity : AppCompatActivity() {
     private fun onStart9RouterClicked() {
         if (!ensureTermuxReady { onStart9RouterClicked() }) return
 
+        cancelStartupProgress()
+        phaseHandler.removeCallbacksAndMessages(null)
         Toast.makeText(this, getString(R.string.toast_9router_starting), Toast.LENGTH_SHORT).show()
         showLoading(getString(R.string.phase_9router))
         startPhaseSequence()
@@ -267,6 +294,8 @@ class MainActivity : AppCompatActivity() {
      *      ako je već pokrenut korakom 1)
      */
     private fun startEverything() {
+        cancelStartupProgress()
+        phaseHandler.removeCallbacksAndMessages(null)
         showLoading(getString(R.string.phase_9router))
         startPhaseSequence()
 
@@ -301,12 +330,50 @@ class MainActivity : AppCompatActivity() {
                 return@postDelayed
             }
 
-            // Serveru treba par sekundi da se digne (LiteLLM + 9Router + Odysseus),
-            // pa pokušavamo ponovo učitati stranicu nakon kratke pauze.
-            phaseHandler.postDelayed({
-                if (isActivityAlive()) loadOdysseus()
-            }, 8000)
+            beginStartupProgress()
         }, 2000)
+    }
+
+    private fun beginStartupProgress() {
+        cancelStartupProgress()
+        startupJob = lifecycleScope.launch {
+            val isReady = withTimeoutOrNull(STARTUP_TIMEOUT_MS) {
+                while (isActive) {
+                    if (isOdysseusHealthy()) return@withTimeoutOrNull true
+                    delay(STARTUP_POLL_INTERVAL_MS)
+                }
+                false
+            } == true
+
+            startupJob = null
+            if (!isActivityAlive()) return@launch
+            stopPhaseSequence()
+            if (isReady) {
+                loadOdysseus()
+            } else {
+                hideLoading()
+                homeSubtitle.text = getString(R.string.home_subtitle_start_timeout)
+                homeView.visibility = View.VISIBLE
+            }
+        }
+    }
+
+    private suspend fun isOdysseusHealthy(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val connection = (URL(serverUrl).openConnection() as HttpURLConnection).apply {
+                connectTimeout = HTTP_CONNECT_TIMEOUT_MS
+                readTimeout = HTTP_READ_TIMEOUT_MS
+                requestMethod = "GET"
+                instanceFollowRedirects = false
+            }
+            try {
+                connection.responseCode in 200..399
+            } finally {
+                connection.disconnect()
+            }
+        } catch (e: Exception) {
+            false
+        }
     }
 
     // ---------------------------------------------------------------------

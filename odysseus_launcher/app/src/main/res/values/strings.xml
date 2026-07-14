@@ -14,6 +14,7 @@
     <string name="home_subtitle_idle">Server nije pokrenut. Odaberi jednu od opcija ispod.</string>
     <string name="home_subtitle_error">Ne mogu da se povežem na server. Provjeri da li je pokrenut, ili ga pokreni ispod.</string>
     <string name="home_subtitle_start_failed">Komanda za pokretanje nije poslana. Provjeri Termux RUN_COMMAND dozvolu i pokušaj ponovo.</string>
+    <string name="home_subtitle_start_timeout">Serveri nisu odgovorili na HTTP provjeru u predviđenom roku. Provjeri Termux logove i pokušaj ponovo.</string>
     <string name="btn_start_9router">Pokreni 9Router</string>
     <string name="btn_start_servers">Pokreni servere</string>
     <string name="toast_9router_starting">Pokrećem 9Router…</string>
