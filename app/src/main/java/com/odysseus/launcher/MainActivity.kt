@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
     private val startScriptPath = "/data/data/com.termux/files/home/start_all.sh"
     private val stopScriptPath = "/data/data/com.termux/files/home/stop_all.sh"
     private val termuxWorkDir = "/data/data/com.termux/files/home"
+    private val nineRouterScriptPath = "/data/data/com.termux/files/home/start_9router.sh"
     private val nineRouterPath = "$termuxPrefix/bin/9router"
     private val bashPath = "$termuxPrefix/bin/bash"
 
